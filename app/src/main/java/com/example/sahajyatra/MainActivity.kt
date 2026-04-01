@@ -4,26 +4,23 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryScrollableTabRow
+import androidx.compose.material.icons.Icons
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -42,73 +39,60 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+sealed class BottomNavItem(val label: String, val icon: ImageVector, val route: Any) {
+    data object Home : BottomNavItem("Home", Icons.Default.Home, com.example.sahajyatra.Home)
+    data object MySports : BottomNavItem("My Sports", Icons.Default.Person, com.example.sahajyatra.MySports)
+    data object Settings : BottomNavItem("Settings", Icons.Default.Settings, com.example.sahajyatra.Settings)
+}
+
 @Composable
 fun MainApp() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
-    val tabNavigationItems = listOf(
-        TabNavigation.TopStories,
-        TabNavigation.UKNews,
-        TabNavigation.Politics,
-        TabNavigation.Business,
-        TabNavigation.WorldNews,
-        TabNavigation.Sport,
-        TabNavigation.Other
+    val items = listOf(
+        BottomNavItem.Home,
+        BottomNavItem.MySports,
+        BottomNavItem.Settings
     )
 
-    var tabIndex by rememberSaveable { mutableIntStateOf(0) }
-
     Scaffold(
-        topBar = {
-            Column {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Text(stringResource(R.string.app_name))
-                    },
-                    modifier = Modifier.statusBarsPadding(),
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
-                    )
-                )
-                PrimaryScrollableTabRow(
-                    selectedTabIndex = tabIndex,
-                    edgePadding = 0.dp
-                ) {
-                    tabNavigationItems.forEachIndexed { index, item ->
-                        val isSelected = currentDestination?.hasRoute(item.route::class) == true
-                        if (isSelected) tabIndex = index
-                        Tab(
-                            selected = isSelected,
-                            text = { Text(item.label) },
-                            onClick = {
-                                if (!isSelected) {
-                                    navController.navigate(item.route) {
-                                        popUpTo(navController.graph.startDestinationId)
-                                        launchSingleTop = true
-                                    }
+        bottomBar = {
+            NavigationBar {
+                items.forEach { item ->
+                    val isSelected = currentDestination?.hierarchy?.any { it.hasRoute(item.route::class) } == true
+                    NavigationBarItem(
+                        icon = { Icon(item.icon, contentDescription = item.label) },
+                        label = { Text(item.label) },
+                        selected = isSelected,
+                        onClick = {
+                            navController.navigate(item.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
                                 }
+                                launchSingleTop = true
+                                restoreState = true
                             }
-                        )
-                    }
+                        }
+                    )
                 }
             }
         }
-    ) { paddingValues ->
+    ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Destination.TopStories,
-            modifier = Modifier.padding(paddingValues)
+            startDestination = Home,
+            modifier = Modifier.padding(innerPadding)
         ) {
-            composable<Destination.TopStories> { ContentScreen(Destination.TopStories.label) }
-            composable<Destination.UKNews> { ContentScreen(Destination.UKNews.label) }
-            composable<Destination.Politics> { ContentScreen(Destination.Politics.label) }
-            composable<Destination.Business> { ContentScreen(Destination.Business.label) }
-            composable<Destination.WorldNews> { ContentScreen(Destination.WorldNews.label) }
-            composable<Destination.Sport> { ContentScreen(Destination.Sport.label) }
-            composable<Destination.Other> { ContentScreen(Destination.Other.label) }
+            composable<Home> { ContentScreen("Home Screen") }
+            composable<MySports> { MySportsScreen(navController) }
+            composable<Settings> { ContentScreen("Settings Screen") }
+            
+            // Secondary Destinations
+            composable<Football> { SportDetailScreen(navController, "Football") }
+            composable<Basketball> { SportDetailScreen(navController, "Basketball") }
+            composable<Tennis> { SportDetailScreen(navController, "Tennis") }
         }
     }
 }
